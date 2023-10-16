@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { fetchPictures } from 'services/app';
 
@@ -8,111 +8,80 @@ import Button from './Button/Button';
 import Loader from './Loader/Loader';
 import Modal from './Modal/Modal';
 
-export default class App extends Component {
-  state = {
-    pictures: [],
-    isLoading: false,
-    error: null,
-    page: 1,
-    searchText: [],
-    modal: {
+const App = () => {
+  const [pictures, setPictures] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [searchText, setSearchText] = useState([]);
+  const [modal, setModal] = useState({
+    isOpen: false,
+    data: null,
+  });
+
+  const onOpenModal = modalData => {
+    setModal({
+      isOpen: true,
+      data: modalData,
+    });
+  };
+
+  const onCloseModal = () => {
+    setModal({
       isOpen: false,
       data: null,
-    },
-  };
-
-  onOpenModal = modalData => {
-    this.setState({
-      modal: {
-        isOpen: true,
-        data: modalData,
-      },
     });
   };
 
-  onCloseModal = () => {
-    this.setState({
-      modal: {
-        isOpen: false,
-        data: null,
-      },
-    });
+  const handleLoadMore = () => {
+    setPage(page + 1);
   };
 
-  handleLoadMore = () => {
-    this.setState(prevState => {
-      return {
-        page: prevState.page + 1,
-      };
-    });
-  };
-
-  handleSubmitForm = event => {
+  const handleSubmitForm = event => {
     event.preventDefault();
     const { search } = event.target.elements;
 
-    this.setState({ searchText: search.value });
+    setSearchText(search.value);
   };
 
-  loadPictures = async (searchText = '', page = 1, append = false) => {
-    if (!this.state.isLoading) {
+  const loadPictures = async (searchText = '', page = 1, append = false) => {
+    if (!isLoading) {
       try {
-        this.setState({ isLoading: true });
+        setIsLoading(true);
         const { hits } = await fetchPictures(searchText, page);
-        this.setState(prevState => {
-          return {
-            pictures: append ? [...prevState.pictures, ...hits] : hits,
-          };
-        });
+        setPictures(append ? [...pictures, ...hits] : hits);
       } catch (error) {
         console.log(error.message);
       } finally {
-        this.setState({ isLoading: false });
+        setIsLoading(false);
       }
     }
   };
 
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.searchText !== this.state.searchText) {
-      this.setState({ pictures: [] });
+  useEffect(() => {
+    setPictures([]);
+    setPage(1);
+    loadPictures(searchText);
+  }, [searchText]);
 
-      this.setState({ page: 1 });
+  useEffect(() => {
+    loadPictures(searchText, page, true);
+  }, [page]);
 
-      this.loadPictures(this.state.searchText);
-    }
+  return (
+    <div className="App">
+      <Searchbar handleSubmitForm={handleSubmitForm} />
+      <ImageGallery pictures={pictures} onOpenModal={onOpenModal} />
+      {isLoading && <Loader />}
+      {pictures.length ? (
+        <Button title={'Load more'} onClick={handleLoadMore} />
+      ) : (
+        false
+      )}
 
-    if (prevState.page !== this.state.page) {
-      const { searchText, page } = this.state;
-      this.loadPictures(searchText, page, true);
-    }
-  }
+      {modal.isOpen && <Modal onCloseModal={onCloseModal} data={modal.data} />}
+    </div>
+  );
+};
 
-  // componentDidMount() {
-  //   this.loadPictures();
-  // }
+export default App
 
-  render() {
-    return (
-      <div className="App">
-        <Searchbar handleSubmitForm={this.handleSubmitForm} />
-        <ImageGallery
-          pictures={this.state.pictures}
-          onOpenModal={this.onOpenModal}
-        />
-        {this.state.isLoading && <Loader />}
-        {this.state.pictures.length ? (
-          <Button title={'Load more'} onClick={this.handleLoadMore} />
-        ) : (
-          false
-        )}
-
-        {this.state.modal.isOpen && (
-          <Modal
-            onCloseModal={this.onCloseModal}
-            data={this.state.modal.data}
-          />
-        )}
-      </div>
-    );
-  }
-}
